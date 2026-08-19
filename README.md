@@ -1,20 +1,59 @@
 <div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
+  <img src="public/banner.png" width="100%" alt="MIZAN CONTROL Banner" />
+  <br />
+  <img src="public/logo.png" width="120" alt="MIZAN Logo" />
+  <h1>ميزان | MIZAN CONTROL</h1>
+  <p><strong>نظام ذكي لإدارة استهلاك الإنترنت المنزلي وتوزيع الحصص بعدالة ووضوح</strong></p>
+  
+  <p>
+    <img src="https://img.shields.io/badge/Platform-Android-83D96B?style=for-the-badge&logo=android" alt="Android" />
+    <img src="https://img.shields.io/badge/Language-Arabic--First-C8F24A?style=for-the-badge" alt="Arabic First" />
+    <img src="https://img.shields.io/badge/Design-Premium-151515?style=for-the-badge" alt="Premium Design" />
+  </p>
 </div>
 
-# Run and deploy your AI Studio app
+---
 
-This contains everything you need to run your app locally.
+## 🌟 عن المشروع
+**ميزان** هو تطبيق أندرويد عصري مصمم لمساعدة أفراد المنزل على فهم وإدارة استهلاك باقة الإنترنت الشهرية. يتميز التطبيق بلغة بصرية هادئة وراقية، تبتعد عن تعقيدات لوحات التحكم التقليدية لتقدم تجربة مستخدم تشبه تطبيقات الإدارة المالية الشخصية أو تطبيقات الرفاهية.
 
-View your app in AI Studio: https://ai.studio/apps/f2e5a87d-6f2d-4edd-8e90-be7ae0128966
+يعتمد المشروع على مبدأ **العدالة والشفافية**، حيث يوفر لكل مستخدم رؤية واضحة لاستهلاكه الشخصي وتنبيهات ذكية عند اقتراب انتهاء الحصة المخصصة له.
 
-## Run Locally
+## 🎨 الهوية البصرية (Visual Identity)
+تم بناء الهوية البصرية لميزان لتعكس الثقة والهدوء والتحكم الكامل:
+- **الألوان الأساسية:** مزيج احترافي بين الفحم العميق (#151515) والليموني المنعش (#C8F24A) على خلفيات ورقية دافئة (#F6F7F2).
+- **التصميم:** بطاقات معيارية بزوايا دائرية (24dp-28dp)، أيقونات خطية بسيطة، ومساحات بيضاء واسعة تمنح شعوراً بالراحة.
+- **الخطوط:** استخدام خطوط عربية حديثة (IBM Plex Sans Arabic) لضمان وضوح القراءة ودعم اتجاه النص من اليمين لليسار (RTL).
 
-**Prerequisites:**  Node.js
+## 🚀 المميزات الرئيسية
+| الميزة | الوصف |
+|---|---|
+| **مراقبة دقيقة** | تتبع حي لاستهلاك البيانات بالجيجابايت والنسب المئوية. |
+| **توزيع الحصص** | إمكانية تحديد حصص مخصصة لكل جهاز متصل بالشبكة. |
+| **تنبيهات ذكية** | إشعارات فورية عند الوصول لمستويات استهلاك محددة. |
+| **تحليل الاستهلاك** | رسوم بيانية توضح متوسط الاستهلاك اليومي وأكثر التطبيقات استهلاكاً. |
+| **وضع الإيقاف المؤقت** | حماية الباقة من النفاذ المفاجئ عبر إيقاف الإنترنت عند انتهاء الحصة. |
 
+## 🛠️ البنية التقنية (System Design)
+يتبع التطبيق بنية برمجية تعتمد على نماذج الحالة الصريحة (Explicit State Models) لضمان استقرار الواجهة:
+- **SetupRequired:** مرحلة الإعداد الأولي وربط الكود.
+- **ActiveUsage:** لوحة التحكم الرئيسية ومتابعة الاستهلاك.
+- **QuotaExhausted:** حالة انتهاء الحصة وتقييد الوصول.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## 📦 التشغيل المحلي
+1. تأكد من تثبيت **Node.js**.
+2. قم بتثبيت الاعتمادات:
+   ```bash
+   npm install
+   ```
+3. ابدأ وضع التطوير:
+   ```bash
+   npm run dev
+   ```
+
+---
+
+<div align="center">
+  <p>تم تطوير هذا المشروع برؤية تركز على الإنسان وتجعل التكنولوجيا أداة للعدالة والوضوح.</p>
+  <p><strong>MIZAN - Control with Clarity.</strong></p>
+</div>
