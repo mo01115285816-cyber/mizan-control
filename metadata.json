@@ -1,0 +1,6 @@
+{
+  "name": "MIZAN Control",
+  "description": "لوحة تحكم إدارية متكاملة لمالك نظام ميزان لإدارة استهلاك الإنترنت والحصص المنزلية والأجهزة المتصلة",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

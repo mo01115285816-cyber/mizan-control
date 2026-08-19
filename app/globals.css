@@ -1,0 +1,45 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --color-paper: #F6F7F2;
+    --color-warm-white: #FFFDF8;
+    --color-charcoal: #151515;
+    --color-muted-gray: #777A72;
+    --color-lime: #C8F24A;
+    --color-fresh-green: #83D96B;
+    --color-soft-mint: #E7F5C8;
+    --color-line: #E3E5DC;
+    --color-error-soft: #F7D9D2;
+    --color-error-coral: #E0564C;
+    --color-warning-amber: #E58E26;
+  }
+
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-charcoal);
+    font-family: 'IBM Plex Sans Arabic', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+}
+
+/* Custom scrollbars for clean look */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F6F7F2;
+}
+::-webkit-scrollbar-thumb {
+  background: #D5D8CD;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #B6B9AD;
+}
+
+.font-wordmark {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+}
+
