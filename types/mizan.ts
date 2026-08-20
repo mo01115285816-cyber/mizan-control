@@ -56,6 +56,12 @@ export interface Device {
   securityType?: string;
   signalPercent?: number | null;
   networkUpdatedAt?: string;
+  serviceHeartbeatAt?: string;
+  lastPolicySyncAt?: string;
+  lastTelemetryUploadAt?: string;
+  vpnState?: string;
+  networkState?: string;
+  permissionHealth?: string;
   topApps: AppUsageItem[];
   dailyUsage: DailyUsagePoint[];
   activities: DeviceActivity[];

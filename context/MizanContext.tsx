@@ -238,7 +238,9 @@ export function MizanProvider({ children }: { children: ReactNode }) {
         const usedGB = Number(row.current_usage_gb ?? deviceSnapshots[0]?.consumed_gb ?? 0);
         const allowedQuotaGB = Number(policy?.monthly_limit_gb ?? row.quota_limit_gb ?? 0);
         const isBlocked = Boolean(policy?.is_blocked ?? row.is_blocked);
-        const status: DeviceStatus = isBlocked ? 'blocked' : (allowedQuotaGB > 0 && usedGB >= allowedQuotaGB ? 'blocked' : (allowedQuotaGB > 0 && usedGB >= allowedQuotaGB * 0.85 ? 'warning' : 'connected'));
+        const autoCutoffEnabled = Boolean(policy?.enforce_vpn_block ?? false);
+        const quotaReached = autoCutoffEnabled && allowedQuotaGB > 0 && usedGB >= allowedQuotaGB;
+        const status: DeviceStatus = isBlocked || quotaReached ? 'blocked' : (allowedQuotaGB > 0 && usedGB >= allowedQuotaGB * 0.85 ? 'warning' : 'connected');
         return {
           id: key,
           name: String(row.model ?? 'جهاز Mizan'),
@@ -259,6 +261,12 @@ export function MizanProvider({ children }: { children: ReactNode }) {
           securityType: String(row.latest_security_type ?? ''),
           signalPercent: row.latest_signal_percent == null ? null : Number(row.latest_signal_percent),
           networkUpdatedAt: String(row.network_updated_at ?? ''),
+          serviceHeartbeatAt: String(row.service_heartbeat_at ?? ''),
+          lastPolicySyncAt: String(row.last_policy_sync_at ?? ''),
+          lastTelemetryUploadAt: String(row.last_telemetry_upload_at ?? ''),
+          vpnState: String(row.vpn_state ?? 'UNKNOWN'),
+          networkState: String(row.network_state ?? 'UNKNOWN'),
+          permissionHealth: String(row.permission_health ?? 'UNKNOWN'),
           topApps: deviceApps,
           dailyUsage: toDailyUsage(deviceSnapshots),
           activities: [rowToActivity(row)],

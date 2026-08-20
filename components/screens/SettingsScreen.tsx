@@ -116,6 +116,20 @@ export default function SettingsScreen() {
         </section>
 
         <section className="bg-[#FFFDF8] border border-[#E3E5DC] rounded-[28px] p-5 sm:p-7 space-y-4">
+          <div className="flex items-center gap-3 pb-3 border-b border-[#E3E5DC]"><div className="w-10 h-10 rounded-[14px] bg-[#F6F7F2] border border-[#E3E5DC] flex items-center justify-center"><ShieldCheck className="w-5 h-5" /></div><div><h2 className="text-base font-bold">صحة اتصال الجهاز</h2><p className="text-xs text-[#777A72]">هذه مؤشرات تشغيل حقيقية من آخر مزامنة، وليست تخمينًا من حالة الواجهة.</p></div></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {[
+              ['نبض خدمة التتبع', observedDevice?.serviceHeartbeatAt],
+              ['آخر مزامنة سياسة', observedDevice?.lastPolicySyncAt],
+              ['آخر رفع Telemetry', observedDevice?.lastTelemetryUploadAt],
+            ].map(([label, value]) => <div key={String(label)} className="bg-[#F6F7F2] rounded-2xl p-4"><span className="text-xs text-[#777A72] block">{String(label)}</span><strong className="text-xs break-all">{value ? new Date(String(value)).toLocaleString('ar-EG') : 'لم تصل بعد'}</strong></div>)}
+            <div className="bg-[#F6F7F2] rounded-2xl p-4"><span className="text-xs text-[#777A72] block">حالة VPN</span><strong className="text-xs">{observedDevice?.vpnState || 'UNKNOWN'}</strong></div>
+            <div className="bg-[#F6F7F2] rounded-2xl p-4"><span className="text-xs text-[#777A72] block">حالة الشبكة</span><strong className="text-xs">{observedDevice?.networkState || 'UNKNOWN'}</strong></div>
+            <div className="bg-[#F6F7F2] rounded-2xl p-4"><span className="text-xs text-[#777A72] block">صحة الأذونات</span><strong className="text-[10px] break-words">{observedDevice?.permissionHealth || 'UNKNOWN'}</strong></div>
+          </div>
+        </section>
+
+        <section className="bg-[#FFFDF8] border border-[#E3E5DC] rounded-[28px] p-5 sm:p-7 space-y-4">
           <div className="flex items-center gap-3 pb-3 border-b border-[#E3E5DC]"><div className="w-10 h-10 rounded-[14px] bg-[#151515] text-[#C8F24A] flex items-center justify-center"><ShieldCheck className="w-5 h-5" /></div><div><h2 className="text-base font-bold">الحماية والتنبيهات</h2><p className="text-xs text-[#777A72]">تُطبّق على الأجهزة المرتبطة وتُحفظ كإعدادات منزلية حقيقية.</p></div></div>
           {[
             ['إيقاف الإنترنت عند استنفاد الحصة', autoCutoff, setAutoCutoff],
