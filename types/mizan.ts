@@ -106,6 +106,8 @@ export interface HouseholdInvite {
   token: string;
   deepLink: string;
   webLink: string;
+  maxUses: number;
+  useCount?: number;
 }
 
 export interface ToastMessage {

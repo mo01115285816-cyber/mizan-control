@@ -48,7 +48,7 @@ interface MizanContextType {
   gatewaySettings: GatewaySettings | null;
   activeInvite: HouseholdInvite | null;
   createHousehold: (name: string, monthlyQuotaGb: number, targetSsid: string) => Promise<boolean>;
-  createInvite: (displayName?: string) => Promise<HouseholdInvite | null>;
+  createInvite: (displayName?: string, maxUses?: number) => Promise<HouseholdInvite | null>;
   saveGatewaySettings: (settings: Omit<GatewaySettings, 'householdId' | 'updatedAt'>) => Promise<boolean>;
   toggleDevicePause: (deviceId: string) => Promise<void>;
   unblockDevice: (deviceId: string) => Promise<void>;
@@ -216,6 +216,7 @@ export function MizanProvider({ children }: { children: ReactNode }) {
       const id = String(household.id);
       setHouseholdId(id);
       setHouseholdName(String(household.name ?? ''));
+      setActiveInvite(null);
       const [deviceResult, policyResult, settingsResult, snapshotResult, appResult] = await Promise.all([
         supabase.from('devices').select('*').eq('household_id', id).eq('is_active', true).order('last_seen_at', { ascending: false }),
         supabase.from('quota_policies').select('*').eq('household_id', id),
@@ -371,13 +372,14 @@ export function MizanProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const createInvite = async (displayName = '') => {
+  const createInvite = async (displayName = '', maxUses = 5) => {
     if (!householdId) return null;
     try {
-      const { data, error } = await supabase.rpc('create_household_invite', { p_household_id: householdId, p_display_name: displayName });
+      const safeMaxUses = Number.isFinite(maxUses) && maxUses >= 0 ? Math.floor(maxUses) : 5;
+      const { data, error } = await supabase.rpc('create_household_invite', { p_household_id: householdId, p_display_name: displayName, p_max_uses: safeMaxUses });
       if (error) throw error;
       const row = Array.isArray(data) ? data[0] : data;
-      const invite = { token: String(row.invite_token), deepLink: String(row.deep_link), webLink: String(row.web_link) };
+      const invite = { token: String(row.invite_token), deepLink: String(row.deep_link), webLink: String(row.web_link), maxUses: Number(row.max_uses ?? safeMaxUses), useCount: 0 };
       setActiveInvite(invite);
       showToast('تم إنشاء دعوة حقيقية', 'يمكن الآن إرسال الرابط إلى صاحب الجهاز', 'success');
       return invite;
