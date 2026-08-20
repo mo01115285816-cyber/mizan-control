@@ -55,6 +55,7 @@ export interface Device {
   wifiBand?: string;
   securityType?: string;
   signalPercent?: number | null;
+  networkUpdatedAt?: string;
   topApps: AppUsageItem[];
   dailyUsage: DailyUsagePoint[];
   activities: DeviceActivity[];

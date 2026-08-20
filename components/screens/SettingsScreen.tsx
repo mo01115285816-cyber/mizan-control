@@ -22,9 +22,6 @@ export default function SettingsScreen() {
   } = useMizan();
 
   const [targetSsid, setTargetSsid] = useState('');
-  const [gatewayIp, setGatewayIp] = useState('');
-  const [wifiBand, setWifiBand] = useState('');
-  const [securityType, setSecurityType] = useState('');
   const [autoCutoff, setAutoCutoff] = useState(true);
   const [notifyOnNearLimit, setNotifyOnNearLimit] = useState(true);
   const [notifyOnBlock, setNotifyOnBlock] = useState(true);
@@ -35,14 +32,18 @@ export default function SettingsScreen() {
   const [inviteName, setInviteName] = useState('');
   const [inviteMaxUses, setInviteMaxUses] = useState('5');
   const [isSaving, setIsSaving] = useState(false);
-  const observedSsid = devices.map((device) => device.wifiSSID?.trim() ?? '').find((ssid) => ssid && !ssid.includes('غير متاح') && ssid !== 'بيانات الهاتف') ?? '';
+  const observedDevice = [...devices]
+    .sort((a, b) => new Date(b.networkUpdatedAt || b.lastUpdatedDetail || 0).getTime() - new Date(a.networkUpdatedAt || a.lastUpdatedDetail || 0).getTime())
+    .find((device) => Boolean(device.networkUpdatedAt) || Boolean(device.gatewayIp?.trim()) || Boolean(device.wifiBand?.trim()) || Boolean(device.wifiSSID?.trim() && !device.wifiSSID.includes('غير متاح')));
+  const observedSsid = observedDevice?.wifiSSID?.trim() && !observedDevice.wifiSSID.includes('غير متاح') && observedDevice.wifiSSID !== 'بيانات الهاتف' ? observedDevice.wifiSSID.trim() : '';
+  const observedGatewayIp = observedDevice?.gatewayIp?.trim() ?? '';
+  const observedWifiBand = observedDevice?.wifiBand?.trim() ?? '';
+  const observedSecurityType = observedDevice?.securityType?.trim() ?? '';
+  const observedSignal = observedDevice?.signalPercent == null ? '' : `${observedDevice.signalPercent}%`;
 
   useEffect(() => {
     if (!gatewaySettings) return;
     setTargetSsid(gatewaySettings.targetSsid);
-    setGatewayIp(gatewaySettings.gatewayIp);
-    setWifiBand(gatewaySettings.wifiBand);
-    setSecurityType(gatewaySettings.securityType);
     setAutoCutoff(gatewaySettings.autoCutoff);
     setNotifyOnNearLimit(gatewaySettings.notifyOnNearLimit);
     setNotifyOnBlock(gatewaySettings.notifyOnBlock);
@@ -56,7 +57,16 @@ export default function SettingsScreen() {
   const handleSaveSettings = async (event: React.FormEvent) => {
     event.preventDefault();
     setIsSaving(true);
-    await saveGatewaySettings({ targetSsid, gatewayIp, wifiBand, securityType, autoCutoff, notifyOnNearLimit, notifyOnBlock, dailyDigest });
+    await saveGatewaySettings({
+      targetSsid,
+      gatewayIp: observedGatewayIp || gatewaySettings?.gatewayIp || '',
+      wifiBand: observedWifiBand || gatewaySettings?.wifiBand || '',
+      securityType: observedSecurityType || gatewaySettings?.securityType || '',
+      autoCutoff,
+      notifyOnNearLimit,
+      notifyOnBlock,
+      dailyDigest,
+    });
     setIsSaving(false);
   };
 
@@ -96,13 +106,13 @@ export default function SettingsScreen() {
         <section className="bg-[#FFFDF8] border border-[#E3E5DC] rounded-[28px] p-5 sm:p-7 space-y-5">
           <div className="flex items-center gap-3 pb-3 border-b border-[#E3E5DC]"><div className="w-10 h-10 rounded-[14px] bg-[#E7F5C8] flex items-center justify-center"><Wifi className="w-5 h-5" /></div><div><h2 className="text-base font-bold">إعدادات الشبكة المستهدفة</h2><p className="text-xs text-[#777A72]">لا يتم احتساب الحصة إلا عند تطابق SSID الحقيقي مع هذه القيمة.</p></div></div>
           <label className="block space-y-2"><span className="text-xs font-bold">اسم شبكة المنزل المستهدفة (Target SSID)</span><input value={targetSsid} onChange={(e) => setTargetSsid(e.target.value)} className={inputClass} placeholder={observedSsid || 'سيظهر هنا SSID الذي يرسله الهاتف'} /></label>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-4 rounded-2xl bg-[#F6F7F2] border border-[#E3E5DC]"><div className="flex-1"><span className="text-xs text-[#777A72] block">آخر SSID مرصود من الهاتف</span><strong className="text-sm">{observedSsid || 'غير متاح — يجب اتصال الهاتف بـ Wi‑Fi ومنح Nearby Wi‑Fi'}</strong></div><button type="button" disabled={!observedSsid} onClick={() => setTargetSsid(observedSsid)} className="px-4 py-2 rounded-full bg-[#151515] text-[#FFFDF8] text-xs font-bold disabled:opacity-40">استخدام SSID المرصود</button></div>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-4 rounded-2xl bg-[#F6F7F2] border border-[#E3E5DC]"><div className="flex-1"><span className="text-xs text-[#777A72] block">آخر Telemetry مرصود من الهاتف</span><strong className="text-sm">{observedSsid || 'لم تصل قراءة Wi‑Fi حقيقية من الهاتف بعد'}</strong><span className="text-[11px] text-[#777A72] block mt-1">{observedDevice?.networkUpdatedAt ? `آخر تحديث: ${new Date(observedDevice.networkUpdatedAt).toLocaleString('ar-EG')}` : 'يجب فتح التطبيق والاتصال بـ Wi‑Fi وتفعيل أذونات Wi‑Fi والموقع'}</span></div><button type="button" disabled={!observedSsid} onClick={() => setTargetSsid(observedSsid)} className="px-4 py-2 rounded-full bg-[#151515] text-[#FFFDF8] text-xs font-bold disabled:opacity-40">استخدام SSID المرصود</button></div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <label className="space-y-2"><span className="text-xs font-bold">آخر Gateway مرصود</span><input readOnly value={gatewayIp} className={`${inputClass} opacity-70`} placeholder="غير متاح" /></label>
-            <label className="space-y-2"><span className="text-xs font-bold">آخر نطاق مرصود</span><input readOnly value={wifiBand} className={`${inputClass} opacity-70`} placeholder="غير متاح" /></label>
-            <label className="space-y-2"><span className="text-xs font-bold">آخر تشفير مرصود</span><input readOnly value={securityType} className={`${inputClass} opacity-70`} placeholder="غير متاح" /></label>
+            <label className="space-y-2"><span className="text-xs font-bold">آخر Gateway مرصود</span><input readOnly value={observedGatewayIp} className={`${inputClass} opacity-70`} placeholder="لم يصل من الهاتف بعد" /></label>
+            <label className="space-y-2"><span className="text-xs font-bold">آخر نطاق مرصود</span><input readOnly value={observedWifiBand} className={`${inputClass} opacity-70`} placeholder="لم يصل من الهاتف بعد" /></label>
+            <label className="space-y-2"><span className="text-xs font-bold">آخر تشفير مرصود</span><input readOnly value={observedSecurityType} className={`${inputClass} opacity-70`} placeholder="غير متاح من Android" /></label>
           </div>
-          <p className="text-[11px] text-[#777A72]">Target SSID هو سياسة المنزل. الهاتف يرسل SSID وGateway والنطاق والتشفير عندما يستطيع Android قياسها؛ إذا لم يرسلها فستظهر «غير متاح» ولا يتم اختراع WPA2 أو WPA3 أو اسم شبكة افتراضي.</p>
+          <p className="text-[11px] text-[#777A72]">Target SSID هو سياسة المنزل. الحقول أدناه تُقرأ مباشرة من آخر Telemetry محفوظة في جهاز الهاتف. قوة الإشارة الحالية: {observedSignal || 'غير متاحة'}. إذا لم تصل قراءة، فلن يتم اختراع WPA2 أو WPA3 أو اسم شبكة افتراضي.</p>
         </section>
 
         <section className="bg-[#FFFDF8] border border-[#E3E5DC] rounded-[28px] p-5 sm:p-7 space-y-4">

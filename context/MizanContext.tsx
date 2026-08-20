@@ -258,6 +258,7 @@ export function MizanProvider({ children }: { children: ReactNode }) {
           wifiBand: String(row.latest_wifi_band ?? ''),
           securityType: String(row.latest_security_type ?? ''),
           signalPercent: row.latest_signal_percent == null ? null : Number(row.latest_signal_percent),
+          networkUpdatedAt: String(row.network_updated_at ?? ''),
           topApps: deviceApps,
           dailyUsage: toDailyUsage(deviceSnapshots),
           activities: [rowToActivity(row)],
