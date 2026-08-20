@@ -51,6 +51,10 @@ export interface Device {
   lastUpdated: string;
   lastUpdatedDetail: string;
   wifiSSID: string;
+  gatewayIp?: string;
+  wifiBand?: string;
+  securityType?: string;
+  signalPercent?: number | null;
   topApps: AppUsageItem[];
   dailyUsage: DailyUsagePoint[];
   activities: DeviceActivity[];

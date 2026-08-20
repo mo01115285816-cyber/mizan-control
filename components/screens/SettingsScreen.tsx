@@ -13,6 +13,7 @@ export default function SettingsScreen() {
     householdId,
     householdName,
     gatewaySettings,
+    devices,
     activeInvite,
     createHousehold,
     createInvite,
@@ -34,6 +35,7 @@ export default function SettingsScreen() {
   const [inviteName, setInviteName] = useState('');
   const [inviteMaxUses, setInviteMaxUses] = useState('5');
   const [isSaving, setIsSaving] = useState(false);
+  const observedSsid = devices.map((device) => device.wifiSSID?.trim() ?? '').find((ssid) => ssid && !ssid.includes('غير متاح') && ssid !== 'بيانات الهاتف') ?? '';
 
   useEffect(() => {
     if (!gatewaySettings) return;
@@ -93,13 +95,14 @@ export default function SettingsScreen() {
       <form onSubmit={handleSaveSettings} className="space-y-5">
         <section className="bg-[#FFFDF8] border border-[#E3E5DC] rounded-[28px] p-5 sm:p-7 space-y-5">
           <div className="flex items-center gap-3 pb-3 border-b border-[#E3E5DC]"><div className="w-10 h-10 rounded-[14px] bg-[#E7F5C8] flex items-center justify-center"><Wifi className="w-5 h-5" /></div><div><h2 className="text-base font-bold">إعدادات الشبكة المستهدفة</h2><p className="text-xs text-[#777A72]">لا يتم احتساب الحصة إلا عند تطابق SSID الحقيقي مع هذه القيمة.</p></div></div>
-          <label className="block space-y-2"><span className="text-xs font-bold">اسم شبكة المنزل المستهدفة (Target SSID)</span><input value={targetSsid} onChange={(e) => setTargetSsid(e.target.value)} className={inputClass} placeholder="اكتب SSID الحقيقي كما يظهر في الهاتف" /></label>
+          <label className="block space-y-2"><span className="text-xs font-bold">اسم شبكة المنزل المستهدفة (Target SSID)</span><input value={targetSsid} onChange={(e) => setTargetSsid(e.target.value)} className={inputClass} placeholder={observedSsid || 'سيظهر هنا SSID الذي يرسله الهاتف'} /></label>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-4 rounded-2xl bg-[#F6F7F2] border border-[#E3E5DC]"><div className="flex-1"><span className="text-xs text-[#777A72] block">آخر SSID مرصود من الهاتف</span><strong className="text-sm">{observedSsid || 'غير متاح — يجب اتصال الهاتف بـ Wi‑Fi ومنح Nearby Wi‑Fi'}</strong></div><button type="button" disabled={!observedSsid} onClick={() => setTargetSsid(observedSsid)} className="px-4 py-2 rounded-full bg-[#151515] text-[#FFFDF8] text-xs font-bold disabled:opacity-40">استخدام SSID المرصود</button></div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <label className="space-y-2"><span className="text-xs font-bold">Gateway IP</span><input value={gatewayIp} onChange={(e) => setGatewayIp(e.target.value)} className={inputClass} placeholder="غير متاح" /></label>
-            <label className="space-y-2"><span className="text-xs font-bold">النطاق</span><input value={wifiBand} onChange={(e) => setWifiBand(e.target.value)} className={inputClass} placeholder="غير متاح" /></label>
-            <label className="space-y-2"><span className="text-xs font-bold">التشفير</span><input value={securityType} onChange={(e) => setSecurityType(e.target.value)} className={inputClass} placeholder="غير متاح" /></label>
+            <label className="space-y-2"><span className="text-xs font-bold">آخر Gateway مرصود</span><input readOnly value={gatewayIp} className={`${inputClass} opacity-70`} placeholder="غير متاح" /></label>
+            <label className="space-y-2"><span className="text-xs font-bold">آخر نطاق مرصود</span><input readOnly value={wifiBand} className={`${inputClass} opacity-70`} placeholder="غير متاح" /></label>
+            <label className="space-y-2"><span className="text-xs font-bold">آخر تشفير مرصود</span><input readOnly value={securityType} className={`${inputClass} opacity-70`} placeholder="غير متاح" /></label>
           </div>
-          <p className="text-[11px] text-[#777A72]">أي معلومة لا يرسلها الهاتف أو لم تُحفظ فعليًا ستظهر كـ «غير متاح» ولن يتم اختراع WPA2 أو WPA3 أو اسم شبكة افتراضي.</p>
+          <p className="text-[11px] text-[#777A72]">Target SSID هو سياسة المنزل. الهاتف يرسل SSID وGateway والنطاق والتشفير عندما يستطيع Android قياسها؛ إذا لم يرسلها فستظهر «غير متاح» ولا يتم اختراع WPA2 أو WPA3 أو اسم شبكة افتراضي.</p>
         </section>
 
         <section className="bg-[#FFFDF8] border border-[#E3E5DC] rounded-[28px] p-5 sm:p-7 space-y-4">
@@ -115,7 +118,7 @@ export default function SettingsScreen() {
         </section>
 
         <section className="bg-[#FFFDF8] border border-[#E3E5DC] rounded-[28px] p-5 sm:p-7 space-y-4">
-          <div className="flex items-center gap-3 pb-3 border-b border-[#E3E5DC]"><div className="w-10 h-10 rounded-[14px] bg-[#F6F7F2] border border-[#E3E5DC] flex items-center justify-center"><Link2 className="w-5 h-5" /></div><div><h2 className="text-base font-bold">دعوة جهاز جديد</h2><p className="text-xs text-[#777A72]">الدعوة تُنشأ في household_members وتُقبل من التطبيق عبر deep link.</p></div></div>
+          <div className="flex items-center gap-3 pb-3 border-b border-[#E3E5DC]"><div className="w-10 h-10 rounded-[14px] bg-[#F6F7F2] border border-[#E3E5DC] flex items-center justify-center"><Link2 className="w-5 h-5" /></div><div><h2 className="text-base font-bold">دعوة جهاز جديد</h2><p className="text-xs text-[#777A72]">الرابط يُحفظ في household_invite_links ويُقبل من التطبيق عبر deep link حسب عدد الاستخدامات المحدد.</p></div></div>
           <div className="grid grid-cols-1 sm:grid-cols-[1fr_180px_auto] gap-3"><input value={inviteName} onChange={(e) => setInviteName(e.target.value)} className={inputClass} placeholder="اسم العضو اختياري" /><select value={inviteMaxUses} onChange={(e) => setInviteMaxUses(e.target.value)} className={inputClass}><option value="5">5 أجهزة</option><option value="10">10 أجهزة</option><option value="0">غير محدود</option></select><button type="button" onClick={() => void createInvite(inviteName, Number(inviteMaxUses))} className="px-5 py-3 rounded-full bg-[#151515] text-[#FFFDF8] font-bold text-sm whitespace-nowrap">إنشاء رابط مشاركة</button></div>
           <p className="text-[11px] text-[#777A72]">الرابط الواحد يمكن أن يستخدمه العدد المحدد من الأجهزة. عند اختيار «غير محدود» يصبح 0 استخدامات قصوى. بطاقة الرابط الحالية مؤقتة وتختفي بعد إعادة قراءة البيانات.</p>
           {activeInvite && <div className="space-y-3 bg-[#E7F5C8] border border-[#C8F24A] rounded-2xl p-4"><p className="text-xs font-bold">رابط المشاركة — {activeInvite.maxUses === 0 ? 'غير محدود' : `${activeInvite.maxUses} أجهزة`}</p><div className="flex items-center gap-2"><code className="flex-1 text-[11px] break-all dir-ltr">{activeInvite.deepLink}</code><button type="button" onClick={() => void copyText(activeInvite.deepLink)} className="p-2 rounded-full bg-[#FFFDF8]" title="نسخ"><Copy className="w-4 h-4" /></button></div><p className="text-[11px] text-[#777A72]">يمكن أيضًا استخدام الرابط العام: {activeInvite.webLink}</p></div>}
