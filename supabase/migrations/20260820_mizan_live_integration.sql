@@ -176,7 +176,7 @@ AS $$
 DECLARE
   v_user_id uuid := auth.uid();
   v_household_id text := gen_random_uuid()::text;
-  v_invite_code text := 'MZN-' || upper(substr(encode(gen_random_bytes(12), 'hex'), 1, 20));
+  v_invite_code text := 'MZN-' || upper(substr(encode(extensions.gen_random_bytes(12), 'hex'), 1, 20));
 BEGIN
   IF v_user_id IS NULL OR NULLIF(trim(p_name), '') IS NULL THEN
     RAISE EXCEPTION 'invalid_household_request';
@@ -214,7 +214,7 @@ BEGIN
     RAISE EXCEPTION 'not_household_owner';
   END IF;
 
-  v_token := 'MZN-' || upper(substr(encode(gen_random_bytes(24), 'hex'), 1, 40));
+  v_token := 'MZN-' || upper(substr(encode(extensions.gen_random_bytes(24), 'hex'), 1, 40));
   INSERT INTO public.household_members (
     household_id, role, display_name, is_active, joined_at, invite_token
   ) VALUES (

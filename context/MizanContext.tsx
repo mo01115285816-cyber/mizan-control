@@ -87,6 +87,12 @@ const emptyQuota: HouseholdQuota = {
   secondAlertPercent: 95,
 };
 
+function describeSupabaseError(error: unknown, fallback: string) {
+  if (!error || typeof error !== 'object') return fallback;
+  const value = error as { message?: string; code?: string; details?: string; hint?: string };
+  return [value.message, value.code ? `code=${value.code}` : '', value.details, value.hint].filter(Boolean).join(' | ') || fallback;
+}
+
 function formatRelativeTime(value?: string | null) {
   if (!value) return 'غير متاح';
   const delta = Math.max(0, Date.now() - new Date(value).getTime());
@@ -360,7 +366,7 @@ export function MizanProvider({ children }: { children: ReactNode }) {
       showToast('تم إنشاء المنزل', 'أصبح المنزل جاهزًا لإضافة الأجهزة والدعوات', 'success');
       return true;
     } catch (error) {
-      showToast('تعذر إنشاء المنزل', error instanceof Error ? error.message : 'تحقق من الاتصال', 'danger');
+      showToast('تعذر إنشاء المنزل', describeSupabaseError(error, 'تحقق من إعدادات Supabase والصلاحيات'), 'danger');
       return false;
     }
   };
@@ -376,7 +382,7 @@ export function MizanProvider({ children }: { children: ReactNode }) {
       showToast('تم إنشاء دعوة حقيقية', 'يمكن الآن إرسال الرابط إلى صاحب الجهاز', 'success');
       return invite;
     } catch (error) {
-      showToast('تعذر إنشاء الدعوة', error instanceof Error ? error.message : 'تحقق من صلاحية المسؤول', 'danger');
+      showToast('تعذر إنشاء الدعوة', describeSupabaseError(error, 'تحقق من صلاحية المسؤول'), 'danger');
       return null;
     }
   };
