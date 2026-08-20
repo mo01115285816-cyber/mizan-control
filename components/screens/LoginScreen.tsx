@@ -3,36 +3,26 @@
 import React, { useState } from 'react';
 import { useMizan } from '@/context/MizanContext';
 import MizanLogo from '@/components/common/MizanLogo';
-import { Lock, Mail, ArrowLeft, AlertCircle, ShieldCheck, KeyRound } from 'lucide-react';
+import { Lock, Mail, ArrowLeft, AlertCircle, ShieldCheck } from 'lucide-react';
 
 export default function LoginScreen() {
   const { login } = useMizan();
-  const [email, setEmail] = useState<string>('admin@mizan.home');
-  const [password, setPassword] = useState<string>('••••••••');
-  const [actualPass, setActualPass] = useState<string>('mizan2026');
+  const [email, setEmail] = useState<string>('');
+  const [actualPass, setActualPass] = useState<string>('');
   const [rememberMe, setRememberMe] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
     setIsLoading(true);
 
-    setTimeout(() => {
-      setIsLoading(false);
-      const success = login(email, actualPass);
-      if (!success) {
-        setErrorMsg('البريد الإلكتروني أو كلمة المرور غير صحيحة. يرجى المحاولة مجدداً.');
-      }
-    }, 400);
-  };
-
-  const handleFillDemo = () => {
-    setEmail('admin@mizan.home');
-    setActualPass('mizan2026');
-    setPassword('••••••••');
-    setErrorMsg(null);
+    const success = await login(email, actualPass);
+    setIsLoading(false);
+    if (!success) {
+      setErrorMsg('البريد الإلكتروني أو كلمة المرور غير صحيحة. يرجى المحاولة مجدداً.');
+    }
   };
 
   return (
@@ -124,14 +114,6 @@ export default function LoginScreen() {
                 </span>
               </label>
 
-              <button
-                type="button"
-                onClick={handleFillDemo}
-                className="text-xs font-bold text-[#151515] bg-[#E7F5C8] hover:bg-[#C8F24A] px-3 py-1 rounded-full border border-[#C8F24A] transition-colors whitespace-nowrap"
-                title="تعبئة بيانات المسؤول التجريبية"
-              >
-                تعبئة تلقائية
-              </button>
             </div>
 
             {/* Submit Button */}
@@ -159,16 +141,6 @@ export default function LoginScreen() {
           </div>
         </div>
 
-        {/* Bottom helper card for demo reviewer */}
-        <div className="bg-[#E7F5C8] border border-[#C8F24A] rounded-[20px] p-4 text-center text-xs text-[#151515] space-y-1">
-          <p className="font-bold flex items-center justify-center gap-1.5">
-            <KeyRound className="w-3.5 h-3.5" />
-            بيانات الدخول التجريبية للمسؤول:
-          </p>
-          <p className="font-mono text-xs dir-ltr">
-            admin@mizan.home / mizan2026
-          </p>
-        </div>
       </div>
     </div>
   );

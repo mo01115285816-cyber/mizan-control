@@ -21,10 +21,6 @@ import {
 } from 'lucide-react';
 import { useMizan } from '@/context/MizanContext';
 import { 
-  TOP_GLOBAL_APPS, 
-  HOUSEHOLD_7DAY_USAGE 
-} from '@/lib/mock-data';
-import { 
   ResponsiveContainer, 
   BarChart, 
   Bar, 
@@ -49,12 +45,29 @@ export default function OverviewScreen() {
   const warningDevicesCount = devices.filter((d) => d.status === 'warning').length;
   const blockedDevicesCount = devices.filter((d) => d.status === 'blocked' || d.isPaused).length;
 
-  // Chart data adaptation based on selected range
-  const chartData = HOUSEHOLD_7DAY_USAGE.map((item, idx) => ({
-    name: item.dayLabel,
-    used: timeRange === 'monthly' ? item.usedGB * 4.2 : timeRange === 'weekly' ? item.usedGB * 1.5 : item.usedGB,
-    highlight: idx === 5, // Thursday is peak
+  const allApps = devices.flatMap((device) => device.topApps);
+  const groupedApps = new Map<string, typeof allApps[number]>();
+  allApps.forEach((app) => {
+    const previous = groupedApps.get(app.id);
+    groupedApps.set(app.id, { ...app, usedGB: Number(((previous?.usedGB ?? 0) + app.usedGB).toFixed(4)) });
+  });
+  const topGlobalApps = [...groupedApps.values()].sort((a, b) => b.usedGB - a.usedGB).map((app, index, list) => ({
+    ...app,
+    percentage: list.reduce((sum, item) => sum + item.usedGB, 0) > 0 ? Number(((app.usedGB / list.reduce((sum, item) => sum + item.usedGB, 0)) * 100).toFixed(1)) : 0,
+    id: `${app.id}-${index}`,
   }));
+  const dailyByKey = new Map<string, { name: string; used: number }>();
+  devices.flatMap((device) => device.dailyUsage).forEach((point) => {
+    const current = dailyByKey.get(point.dayKey);
+    dailyByKey.set(point.dayKey, { name: point.dayLabel, used: (current?.used ?? 0) + point.usedGB });
+  });
+  const dailyPoints = [...dailyByKey.values()].slice(-7);
+  const chartData = dailyPoints.map((item, idx) => ({
+    ...item,
+    used: timeRange === 'monthly' ? item.used * 4.2 : timeRange === 'weekly' ? item.used * 1.5 : item.used,
+    highlight: idx === dailyPoints.length - 1 && dailyPoints.length > 0,
+  }));
+  const averageDaily = dailyPoints.length > 0 ? dailyPoints.reduce((sum, item) => sum + item.used, 0) / dailyPoints.length : 0;
 
   const getAppIcon = (name: string) => {
     switch (name.toLowerCase()) {
@@ -136,7 +149,7 @@ export default function OverviewScreen() {
           </div>
           <div className="flex items-center gap-1.5 text-xs text-[#777A72]">
             <TrendingUp className="w-3.5 h-3.5 text-[#151515]" />
-            <span>متوسط 11.8 جيجابايت يومياً</span>
+            <span>متوسط {averageDaily.toFixed(2)} جيجابايت يومياً</span>
           </div>
         </div>
 
@@ -376,7 +389,7 @@ export default function OverviewScreen() {
               <span className="w-3 h-3 rounded-md bg-[#C8F24A] border border-[#151515] mr-2" />
               <span>ذروة الاستهلاك (الخميس)</span>
             </div>
-            <span className="font-semibold text-[#151515]">المتوسط اليومي: 11.8 GB</span>
+            <span className="font-semibold text-[#151515]">المتوسط اليومي: {averageDaily.toFixed(2)} GB</span>
           </div>
         </div>
 
@@ -396,7 +409,7 @@ export default function OverviewScreen() {
 
           {/* Top Apps List */}
           <div className="space-y-3.5">
-            {TOP_GLOBAL_APPS.slice(0, 5).map((app, index) => (
+            {topGlobalApps.slice(0, 5).map((app, index) => (
               <div 
                 key={app.id}
                 className="bg-[#F6F7F2] p-3 rounded-[18px] border border-[#E3E5DC] space-y-2 hover:border-[#151515] transition-colors"

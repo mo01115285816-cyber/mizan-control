@@ -17,7 +17,6 @@ import {
   Calendar
 } from 'lucide-react';
 import { useMizan } from '@/context/MizanContext';
-import { TOP_GLOBAL_APPS, HOUSEHOLD_7DAY_USAGE } from '@/lib/mock-data';
 import { 
   ResponsiveContainer, 
   BarChart, 
@@ -31,16 +30,23 @@ import {
 } from 'recharts';
 
 export default function AnalyticsScreen() {
-  const { householdQuota, devices, navigateToDevice, showToast } = useMizan();
+  const { householdQuota, devices, showToast } = useMizan();
   const [activeCategory, setActiveCategory] = useState<string>('all');
-
-  const categories = [
-    { name: 'فيديو وبث (Streaming)', usedGB: 57.4, percentage: 67.2, color: '#151515' },
-    { name: 'ألعاب أونلاين (Gaming)', usedGB: 11.6, percentage: 13.6, color: '#C8F24A' },
-    { name: 'تواصل اجتماعي (Social)', usedGB: 9.2, percentage: 10.8, color: '#83D96B' },
-    { name: 'عمل ودراسة (Productivity)', usedGB: 4.8, percentage: 5.6, color: '#777A72' },
-    { name: 'أخرى ونظام (Other)', usedGB: 2.3, percentage: 2.8, color: '#E3E5DC' },
-  ];
+  const apps = devices.flatMap((device) => device.topApps);
+  const grouped = new Map<string, typeof apps[number]>();
+  apps.forEach((app) => {
+    const previous = grouped.get(app.id);
+    grouped.set(app.id, { ...app, usedGB: Number(((previous?.usedGB ?? 0) + app.usedGB).toFixed(4)) });
+  });
+  const topApps = [...grouped.values()].sort((a, b) => b.usedGB - a.usedGB);
+  const totalAppsUsage = topApps.reduce((sum, app) => sum + app.usedGB, 0);
+  const categoriesMap = new Map<string, number>();
+  topApps.forEach((app) => categoriesMap.set(app.category, (categoriesMap.get(app.category) ?? 0) + app.usedGB));
+  const categoryColors = ['#151515', '#C8F24A', '#83D96B', '#777A72', '#E3E5DC'];
+  const categories = [...categoriesMap.entries()].map(([name, usedGB], index) => ({ name, usedGB: Number(usedGB.toFixed(4)), percentage: totalAppsUsage > 0 ? Number(((usedGB / totalAppsUsage) * 100).toFixed(1)) : 0, color: categoryColors[index % categoryColors.length] }));
+  const dailyPoints = devices.flatMap((device) => device.dailyUsage);
+  const highestDay = [...dailyPoints].sort((a, b) => b.usedGB - a.usedGB)[0];
+  const topApp = topApps[0];
 
   const handleExport = () => {
     showToast('تصدير تقرير الاستهلاك', 'تم تصدير تقرير PDF و CSV لبيانات استهلاك هذا الشهر بنجاح', 'success');
@@ -73,27 +79,27 @@ export default function AnalyticsScreen() {
         <div className="bg-[#FFFDF8] border border-[#E3E5DC] rounded-[24px] p-6 space-y-2 shadow-2xs">
           <span className="text-xs font-bold text-[#777A72]">أعلى يوم استهلاكاً</span>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-[#151515]">يوم الخميس</span>
-            <span className="text-xs font-bold text-[#C0392B]">16.5 GB</span>
+            <span className="text-2xl font-bold text-[#151515]">{highestDay?.dayLabel ?? 'غير متاح'}</span>
+            <span className="text-xs font-bold text-[#C0392B]">{highestDay?.usedGB?.toFixed(2) ?? '0.00'} GB</span>
           </div>
-          <p className="text-[11px] text-[#777A72]">بسبب جلسات مشاهدة البث عالي الدقة</p>
+          <p className="text-[11px] text-[#777A72]">محسوب من لقطات Wi‑Fi المنشورة من الأجهزة المرتبطة</p>
         </div>
 
         <div className="bg-[#FFFDF8] border border-[#E3E5DC] rounded-[24px] p-6 space-y-2 shadow-2xs">
           <span className="text-xs font-bold text-[#777A72]">ساعات الذروة المعتادة</span>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-[#151515]">08:00 م - 11:30 م</span>
+            <span className="text-2xl font-bold text-[#151515]">غير متاح</span>
           </div>
-          <p className="text-[11px] text-[#777A72]">تشهد تدفق 62% من حزم الإنترنت اليومية</p>
+          <p className="text-[11px] text-[#777A72]">لا تُخمن لوحة التحكم ساعات الذروة دون بيانات زمنية حقيقية كافية.</p>
         </div>
 
         <div className="bg-[#FFFDF8] border border-[#E3E5DC] rounded-[24px] p-6 space-y-2 shadow-2xs">
           <span className="text-xs font-bold text-[#777A72]">التطبيق الأكثر استهلاكاً</span>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-[#151515]">تيك توك (TikTok)</span>
-            <span className="text-xs font-bold text-[#151515]">30.0 GB</span>
+            <span className="text-2xl font-bold text-[#151515]">{topApp?.nameAr ?? 'غير متاح'}</span>
+            <span className="text-xs font-bold text-[#151515]">{topApp?.usedGB?.toFixed(2) ?? '0.00'} GB</span>
           </div>
-          <p className="text-[11px] text-[#777A72]">يمثل 35.2% من مجمل استهلاك المنزل</p>
+          <p className="text-[11px] text-[#777A72]">يمثل {topApp && totalAppsUsage > 0 ? ((topApp.usedGB / totalAppsUsage) * 100).toFixed(1) : '0.0'}% من التطبيقات المسجلة.</p>
         </div>
       </div>
 
@@ -140,7 +146,7 @@ export default function AnalyticsScreen() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {TOP_GLOBAL_APPS.map((app) => (
+            {topApps.map((app) => (
               <div
                 key={app.id}
                 className="bg-[#F6F7F2] p-4 rounded-[20px] border border-[#E3E5DC] space-y-2 hover:border-[#151515] transition-colors"

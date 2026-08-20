@@ -89,6 +89,25 @@ export type SimulatedSystemState =
   | 'sync_error' 
   | 'unauthorized';
 
+export interface GatewaySettings {
+  householdId: string;
+  targetSsid: string;
+  gatewayIp: string;
+  wifiBand: string;
+  securityType: string;
+  autoCutoff: boolean;
+  notifyOnNearLimit: boolean;
+  notifyOnBlock: boolean;
+  dailyDigest: boolean;
+  updatedAt: string;
+}
+
+export interface HouseholdInvite {
+  token: string;
+  deepLink: string;
+  webLink: string;
+}
+
 export interface ToastMessage {
   id: string;
   title: string;
