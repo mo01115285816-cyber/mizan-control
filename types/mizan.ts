@@ -51,6 +51,7 @@ export interface Device {
   lastUpdated: string;
   lastUpdatedDetail: string;
   wifiSSID: string;
+  wifiBssid?: string;
   gatewayIp?: string;
   wifiBand?: string;
   securityType?: string;
@@ -62,6 +63,8 @@ export interface Device {
   vpnState?: string;
   networkState?: string;
   permissionHealth?: string;
+  blockedScope?: 'TARGET_WIFI_ONLY';
+  policyVersion?: number;
   topApps: AppUsageItem[];
   dailyUsage: DailyUsagePoint[];
   activities: DeviceActivity[];
@@ -103,6 +106,7 @@ export type SimulatedSystemState =
 export interface GatewaySettings {
   householdId: string;
   targetSsid: string;
+  targetBssid: string;
   gatewayIp: string;
   wifiBand: string;
   securityType: string;

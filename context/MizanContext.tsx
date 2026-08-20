@@ -256,6 +256,7 @@ export function MizanProvider({ children }: { children: ReactNode }) {
           lastUpdated: formatRelativeTime(String(row.last_seen_at ?? '')),
           lastUpdatedDetail: String(row.last_seen_at ?? 'غير متاح'),
           wifiSSID: String(row.latest_ssid ?? row.home_ssid ?? ''),
+          wifiBssid: String(row.latest_bssid ?? ''),
           gatewayIp: String(row.latest_gateway_ip ?? ''),
           wifiBand: String(row.latest_wifi_band ?? ''),
           securityType: String(row.latest_security_type ?? ''),
@@ -267,6 +268,8 @@ export function MizanProvider({ children }: { children: ReactNode }) {
           vpnState: String(row.vpn_state ?? 'UNKNOWN'),
           networkState: String(row.network_state ?? 'UNKNOWN'),
           permissionHealth: String(row.permission_health ?? 'UNKNOWN'),
+          blockedScope: (String(policy?.blocked_scope ?? 'TARGET_WIFI_ONLY') === 'TARGET_WIFI_ONLY' ? 'TARGET_WIFI_ONLY' : 'TARGET_WIFI_ONLY'),
+          policyVersion: Number(policy?.policy_version ?? 1),
           topApps: deviceApps,
           dailyUsage: toDailyUsage(deviceSnapshots),
           activities: [rowToActivity(row)],
@@ -298,6 +301,7 @@ export function MizanProvider({ children }: { children: ReactNode }) {
       setGatewaySettings(settings ? {
         householdId: id,
         targetSsid: String(settings.target_ssid ?? ''),
+        targetBssid: String(settings.target_bssid ?? ''),
         gatewayIp: String(settings.gateway_ip ?? ''),
         wifiBand: String(settings.wifi_band ?? ''),
         securityType: String(settings.security_type ?? ''),
@@ -404,10 +408,15 @@ export function MizanProvider({ children }: { children: ReactNode }) {
 
   const saveGatewaySettings = async (settings: Omit<GatewaySettings, 'householdId' | 'updatedAt'>) => {
     if (!householdId) return false;
+    if (!settings.targetSsid.trim()) {
+      showToast('لا يمكن حفظ الشبكة', 'يجب اعتماد اسم شبكة Wi‑Fi حقيقي من الهاتف أولًا', 'danger');
+      return false;
+    }
     try {
       const { error } = await supabase.from('gateway_system_settings').upsert({
         household_id: householdId,
         target_ssid: settings.targetSsid.trim(),
+        target_bssid: settings.targetBssid.trim(),
         gateway_ip: settings.gatewayIp.trim(),
         wifi_band: settings.wifiBand.trim(),
         security_type: settings.securityType.trim(),
@@ -428,6 +437,14 @@ export function MizanProvider({ children }: { children: ReactNode }) {
 
   const writeDevicePolicy = async (device: Device, blocked: boolean, quotaGb = device.allowedQuotaGB) => {
     if (!householdId) return;
+    const { data: currentPolicy, error: currentPolicyError } = await supabase
+      .from('quota_policies')
+      .select('policy_version')
+      .eq('device_key', device.id)
+      .eq('household_id', householdId)
+      .maybeSingle();
+    if (currentPolicyError) throw currentPolicyError;
+    const nextPolicyVersion = Number(currentPolicy?.policy_version ?? device.policyVersion ?? 0) + 1;
     const payload = {
       device_key: device.id,
       household_id: householdId,
@@ -435,9 +452,13 @@ export function MizanProvider({ children }: { children: ReactNode }) {
       monthly_limit_gb: quotaGb,
       warning_threshold_percent: 85,
       home_ssid: gatewaySettings?.targetSsid ?? device.wifiSSID,
+      target_bssid: gatewaySettings?.targetBssid ?? device.wifiBssid ?? '',
       enforce_vpn_block: gatewaySettings?.autoCutoff ?? true,
       is_blocked: blocked,
-      reason: blocked ? 'قرار المسؤول من لوحة التحكم' : null,
+      blocked_scope: 'TARGET_WIFI_ONLY',
+      policy_version: Math.max(1, nextPolicyVersion),
+      policy_updated_at: new Date().toISOString(),
+      reason: blocked ? 'قرار المسؤول — شبكة Wi‑Fi المنزل المستهدفة فقط' : null,
       reset_day_of_month: 1,
     };
     const { error } = await supabase.from('quota_policies').upsert(payload, { onConflict: 'device_key' });
