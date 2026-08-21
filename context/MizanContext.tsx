@@ -451,15 +451,17 @@ export function MizanProvider({ children }: { children: ReactNode }) {
 
   const saveGatewaySettings = async (settings: Omit<GatewaySettings, 'householdId' | 'updatedAt'>) => {
     if (!householdId) return false;
-    if (!settings.targetSsid.trim()) {
+    const targetSsid = settings.targetSsid.trim();
+    const targetBssid = settings.targetBssid.trim().toLowerCase();
+    if (!targetSsid) {
       showToast('لا يمكن حفظ الشبكة', 'يجب اعتماد اسم شبكة Wi‑Fi حقيقي من الهاتف أولًا', 'danger');
       return false;
     }
     try {
       const { error } = await supabase.from('gateway_system_settings').upsert({
         household_id: householdId,
-        target_ssid: settings.targetSsid.trim(),
-        target_bssid: settings.targetBssid.trim(),
+        target_ssid: targetSsid,
+        target_bssid: targetBssid,
         gateway_ip: settings.gatewayIp.trim(),
         wifi_band: settings.wifiBand.trim(),
         security_type: settings.securityType.trim(),
@@ -469,8 +471,35 @@ export function MizanProvider({ children }: { children: ReactNode }) {
         daily_digest: settings.dailyDigest,
       }, { onConflict: 'household_id' });
       if (error) throw error;
+
+      // Keep the legacy gateway card and the per-device network registry in sync.
+      // If this household has one matching/only network, this is the same target
+      // network the administrator is editing; propagate the new BSSID and version.
+      const matchedNetwork = monitoredNetworks.find((network) => network.ssid === targetSsid) ?? (monitoredNetworks.length === 1 ? monitoredNetworks[0] : null);
+      if (matchedNetwork) {
+        const { error: networkError } = await supabase.from('monitored_networks').update({
+          ssid: targetSsid,
+          bssid: targetBssid || null,
+          updated_at: new Date().toISOString(),
+        }).eq('id', matchedNetwork.id).eq('household_id', householdId);
+        if (networkError) throw networkError;
+
+        const { data: policies, error: policiesError } = await supabase.from('quota_policies')
+          .select('device_key,policy_version').eq('household_id', householdId).eq('target_network_id', matchedNetwork.id);
+        if (policiesError) throw policiesError;
+        await Promise.all((policies ?? []).map(async (policy) => {
+          const { error: policyError } = await supabase.from('quota_policies').update({
+            home_ssid: targetSsid,
+            target_bssid: targetBssid,
+            policy_version: Math.max(1, Number(policy.policy_version ?? 0) + 1),
+            policy_updated_at: new Date().toISOString(),
+          }).eq('device_key', String(policy.device_key)).eq('household_id', householdId);
+          if (policyError) throw policyError;
+        }));
+      }
+
       if (session?.user.id) await loadData(session.user.id);
-      showToast('تم حفظ إعدادات الشبكة', 'سيتم تطبيق Target SSID على الأجهزة المرتبطة عند المزامنة', 'success');
+      showToast('تم حفظ إعدادات الشبكة', matchedNetwork ? 'تم تحديث سجل الشبكة وسياسات الأجهزة المرتبطة' : 'تم حفظ Target Wi‑Fi العام، ويمكن توجيه الأجهزة من سجل الشبكات', 'success');
       return true;
     } catch (error) {
       showToast('تعذر حفظ إعدادات الشبكة', error instanceof Error ? error.message : 'تحقق من الصلاحيات', 'danger');
