@@ -46,7 +46,9 @@ export default function DeviceDetailScreen() {
     unblockDevice, 
     blockDevice, 
     removeDevice, 
-    openEditQuotaModal 
+    openEditQuotaModal,
+    monitoredNetworks,
+    assignDeviceNetwork,
   } = useMizan();
 
   const [confirmRemoveOpen, setConfirmRemoveOpen] = useState<boolean>(false);
@@ -164,6 +166,12 @@ export default function DeviceDetailScreen() {
               </span>
             )}
           </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-[#E7F5C8] border border-[#C8F24A] space-y-3">
+          <div className="flex items-center justify-between gap-3"><div><strong className="text-sm block">الشبكة المستهدفة لهذا الجهاز</strong><span className="text-[11px] text-[#5D7D1A] block mt-1">الحصة والحظر سيعملان على هذه الشبكة فقط.</span></div><Wifi className="w-5 h-5 text-[#5D7D1A]" /></div>
+          <div className="flex flex-col sm:flex-row gap-3 sm:items-center"><select value={device.targetNetworkId ?? ''} onChange={(event) => void assignDeviceNetwork(device.id, event.target.value || null)} className="flex-1 bg-[#FFFDF8] border border-[#C8F24A] rounded-2xl px-4 py-3 text-sm font-bold text-[#151515] outline-none"><option value="">بدون شبكة مستهدفة — لا حصة ولا حظر</option>{monitoredNetworks.filter((network) => network.isActive).map((network) => <option key={network.id} value={network.id}>{network.networkName} — {network.ssid}{network.bssid ? ` — ${network.bssid}` : ''}</option>)}</select></div>
+          <p className="text-[11px] text-[#5D7D1A]">الشبكة الحالية: <strong>{device.targetNetworkName || 'غير معيّنة'}</strong>{device.targetNetworkId && device.wifiBssid ? ` • BSSID المرصود: ${device.wifiBssid}` : ''}</p>
         </div>
 
         {/* Regular Admin Actions Bar (Non-destructive) */}

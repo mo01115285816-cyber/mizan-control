@@ -36,6 +36,17 @@ export interface DeviceActivity {
   type: 'sync' | 'warning' | 'pause' | 'resume' | 'quota_change';
 }
 
+export interface MonitoredNetwork {
+  id: string;
+  householdId: string;
+  networkName: string;
+  ssid: string;
+  bssid: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Device {
   id: string;
   name: string;
@@ -52,6 +63,8 @@ export interface Device {
   lastUpdatedDetail: string;
   wifiSSID: string;
   wifiBssid?: string;
+  targetNetworkId?: string;
+  targetNetworkName?: string;
   gatewayIp?: string;
   wifiBand?: string;
   securityType?: string;

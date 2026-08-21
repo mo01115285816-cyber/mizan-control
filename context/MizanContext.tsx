@@ -16,6 +16,7 @@ import {
   AppUsageItem,
   DailyUsagePoint,
   DeviceActivity,
+  MonitoredNetwork,
 } from '@/types/mizan';
 
 interface EditQuotaParams {
@@ -42,6 +43,7 @@ interface MizanContextType {
   householdId: string | null;
   householdName: string;
   devices: Device[];
+  monitoredNetworks: MonitoredNetwork[];
   householdQuota: HouseholdQuota;
   notifications: NotificationItem[];
   unreadNotificationsCount: number;
@@ -50,6 +52,10 @@ interface MizanContextType {
   createHousehold: (name: string, monthlyQuotaGb: number, targetSsid: string) => Promise<boolean>;
   createInvite: (displayName?: string, maxUses?: number) => Promise<HouseholdInvite | null>;
   saveGatewaySettings: (settings: Omit<GatewaySettings, 'householdId' | 'updatedAt'>) => Promise<boolean>;
+  createMonitoredNetwork: (input: { networkName: string; ssid: string; bssid?: string }) => Promise<MonitoredNetwork | null>;
+  updateMonitoredNetwork: (networkId: string, input: { networkName: string; ssid: string; bssid?: string }) => Promise<boolean>;
+  deleteMonitoredNetwork: (networkId: string) => Promise<boolean>;
+  assignDeviceNetwork: (deviceId: string, networkId: string | null) => Promise<boolean>;
   toggleDevicePause: (deviceId: string) => Promise<void>;
   unblockDevice: (deviceId: string) => Promise<void>;
   blockDevice: (deviceId: string) => Promise<void>;
@@ -161,6 +167,7 @@ export function MizanProvider({ children }: { children: ReactNode }) {
   const [householdId, setHouseholdId] = useState<string | null>(null);
   const [householdName, setHouseholdName] = useState('');
   const [devices, setDevices] = useState<Device[]>([]);
+  const [monitoredNetworks, setMonitoredNetworks] = useState<MonitoredNetwork[]>([]);
   const [householdQuota, setHouseholdQuota] = useState<HouseholdQuota>(emptyQuota);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [gatewaySettings, setGatewaySettings] = useState<GatewaySettings | null>(null);
@@ -190,6 +197,7 @@ export function MizanProvider({ children }: { children: ReactNode }) {
     setHouseholdId(null);
     setHouseholdName('');
     setDevices([]);
+    setMonitoredNetworks([]);
     setHouseholdQuota(emptyQuota);
     setNotifications([]);
     setGatewaySettings(null);
@@ -217,17 +225,30 @@ export function MizanProvider({ children }: { children: ReactNode }) {
       setHouseholdId(id);
       setHouseholdName(String(household.name ?? ''));
       setActiveInvite(null);
-      const [deviceResult, policyResult, settingsResult, snapshotResult, appResult] = await Promise.all([
+      const [deviceResult, policyResult, networkResult, settingsResult, snapshotResult, appResult] = await Promise.all([
         supabase.from('devices').select('*').eq('household_id', id).eq('is_active', true).order('last_seen_at', { ascending: false }),
         supabase.from('quota_policies').select('*').eq('household_id', id),
+        supabase.from('monitored_networks').select('*').eq('household_id', id).order('created_at', { ascending: true }),
         supabase.from('gateway_system_settings').select('*').eq('household_id', id).maybeSingle(),
         supabase.from('usage_snapshots').select('*').order('timestamp', { ascending: false }).limit(1000),
         supabase.from('app_usage_records').select('*').eq('user_id', userId).order('recorded_date', { ascending: false }).limit(1000),
       ]);
-      const firstError = [deviceResult.error, policyResult.error, settingsResult.error, snapshotResult.error, appResult.error].find(Boolean);
+      const firstError = [deviceResult.error, policyResult.error, networkResult.error, settingsResult.error, snapshotResult.error, appResult.error].find(Boolean);
       if (firstError) throw firstError;
 
       const policyByDevice = new Map((policyResult.data ?? []).map((row) => [String(row.device_key), row as Record<string, unknown>]));
+      const networkById = new Map((networkResult.data ?? []).map((row) => [String(row.id), row as Record<string, unknown>]));
+      const mappedNetworks: MonitoredNetwork[] = ((networkResult.data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+        id: String(row.id),
+        householdId: String(row.household_id ?? id),
+        networkName: String(row.network_name ?? 'شبكة مراقبة'),
+        ssid: String(row.ssid ?? ''),
+        bssid: String(row.bssid ?? ''),
+        isActive: Boolean(row.is_active ?? true),
+        createdAt: String(row.created_at ?? ''),
+        updatedAt: String(row.updated_at ?? ''),
+      }));
+      setMonitoredNetworks(mappedNetworks);
       const snapshots = (snapshotResult.data ?? []) as Array<Record<string, unknown>>;
       const appRows = (appResult.data ?? []) as Array<Record<string, unknown>>;
       const mapped = ((deviceResult.data ?? []) as Array<Record<string, unknown>>).map((row) => {
@@ -235,6 +256,8 @@ export function MizanProvider({ children }: { children: ReactNode }) {
         const policy = policyByDevice.get(key);
         const deviceSnapshots = snapshots.filter((snapshot) => String(snapshot.device_key) === key);
         const deviceApps = toAppUsage(appRows.filter((app) => String(app.device_key) === key));
+        const targetNetworkId = String(policy?.target_network_id ?? row.target_network_id ?? '');
+        const targetNetwork = networkById.get(targetNetworkId);
         const usedGB = Number(row.current_usage_gb ?? deviceSnapshots[0]?.consumed_gb ?? 0);
         const allowedQuotaGB = Number(policy?.monthly_limit_gb ?? row.quota_limit_gb ?? 0);
         const isBlocked = Boolean(policy?.is_blocked ?? row.is_blocked);
@@ -257,6 +280,8 @@ export function MizanProvider({ children }: { children: ReactNode }) {
           lastUpdatedDetail: String(row.last_seen_at ?? 'غير متاح'),
           wifiSSID: String(row.latest_ssid ?? row.home_ssid ?? ''),
           wifiBssid: String(row.latest_bssid ?? ''),
+          targetNetworkId,
+          targetNetworkName: targetNetwork ? String(targetNetwork.network_name ?? '') : '',
           gatewayIp: String(row.latest_gateway_ip ?? ''),
           wifiBand: String(row.latest_wifi_band ?? ''),
           securityType: String(row.latest_security_type ?? ''),
@@ -350,6 +375,7 @@ export function MizanProvider({ children }: { children: ReactNode }) {
     const channel = supabase.channel(`mizan-household-${householdId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'devices', filter: `household_id=eq.${householdId}` }, () => void loadData(session.user.id))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'quota_policies', filter: `household_id=eq.${householdId}` }, () => void loadData(session.user.id))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'monitored_networks', filter: `household_id=eq.${householdId}` }, () => void loadData(session.user.id))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'gateway_system_settings', filter: `household_id=eq.${householdId}` }, () => void loadData(session.user.id))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'household_members', filter: `household_id=eq.${householdId}` }, () => void loadData(session.user.id))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'usage_snapshots' }, () => void loadData(session.user.id))
@@ -380,7 +406,15 @@ export function MizanProvider({ children }: { children: ReactNode }) {
     try {
       const { error } = await supabase.rpc('create_household', { p_name: name, p_monthly_quota_gb: monthlyQuotaGb, p_target_ssid: targetSsid });
       if (error) throw error;
-      if (session?.user.id) await loadData(session.user.id);
+      if (session?.user.id) {
+        const { data: createdHousehold, error: householdLookupError } = await supabase.from('households').select('id').eq('owner_id', session.user.id).eq('name', name).order('created_at', { ascending: false }).limit(1).maybeSingle();
+        if (householdLookupError) throw householdLookupError;
+        if (createdHousehold?.id && targetSsid.trim()) {
+          const { error: networkError } = await supabase.from('monitored_networks').insert({ household_id: String(createdHousehold.id), network_name: 'الشبكة الرئيسية', ssid: targetSsid.trim(), bssid: null, is_active: true });
+          if (networkError && networkError.code !== '23505') throw networkError;
+        }
+        await loadData(session.user.id);
+      }
       showToast('تم إنشاء المنزل', 'أصبح المنزل جاهزًا لإضافة الأجهزة والدعوات', 'success');
       return true;
     } catch (error) {
@@ -435,6 +469,150 @@ export function MizanProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const createMonitoredNetwork = async (input: { networkName: string; ssid: string; bssid?: string }) => {
+    if (!householdId) return null;
+    const networkName = input.networkName.trim();
+    const ssid = input.ssid.trim();
+    const bssid = (input.bssid ?? '').trim().toLowerCase();
+    if (!networkName || !ssid) {
+      showToast('لا يمكن إضافة الشبكة', 'أدخل اسمًا إداريًا وSSID حقيقيًا', 'danger');
+      return null;
+    }
+    if (bssid && !/^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i.test(bssid)) {
+      showToast('BSSID غير صحيح', 'استخدم الصيغة 00:11:22:33:44:55', 'danger');
+      return null;
+    }
+    try {
+      const { data, error } = await supabase.from('monitored_networks').insert({
+        household_id: householdId,
+        network_name: networkName,
+        ssid,
+        bssid: bssid || null,
+        is_active: true,
+      }).select('*').single();
+      if (error) throw error;
+      if (session?.user.id) await loadData(session.user.id);
+      const row = data as Record<string, unknown>;
+      showToast('تمت إضافة الشبكة', 'يمكن الآن توجيه أي جهاز إليها', 'success');
+      return {
+        id: String(row.id), householdId, networkName: String(row.network_name), ssid: String(row.ssid),
+        bssid: String(row.bssid ?? ''), isActive: Boolean(row.is_active), createdAt: String(row.created_at ?? ''), updatedAt: String(row.updated_at ?? ''),
+      } satisfies MonitoredNetwork;
+    } catch (error) {
+      showToast('تعذر إضافة الشبكة', describeSupabaseError(error, 'قد تكون الشبكة مسجلة بالفعل'), 'danger');
+      return null;
+    }
+  };
+
+  const updateMonitoredNetwork = async (networkId: string, input: { networkName: string; ssid: string; bssid?: string }) => {
+    if (!householdId) return false;
+    const networkName = input.networkName.trim();
+    const ssid = input.ssid.trim();
+    const bssid = (input.bssid ?? '').trim().toLowerCase();
+    if (!networkName || !ssid || (bssid && !/^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i.test(bssid))) {
+      showToast('بيانات الشبكة غير صحيحة', 'راجع الاسم وSSID وBSSID', 'danger');
+      return false;
+    }
+    try {
+      const { error } = await supabase.from('monitored_networks').update({
+        network_name: networkName,
+        ssid,
+        bssid: bssid || null,
+        updated_at: new Date().toISOString(),
+      }).eq('id', networkId).eq('household_id', householdId);
+      if (error) throw error;
+      const { data: policies, error: policiesError } = await supabase.from('quota_policies')
+        .select('device_key,policy_version').eq('household_id', householdId).eq('target_network_id', networkId);
+      if (policiesError) throw policiesError;
+      await Promise.all((policies ?? []).map(async (policy) => {
+        const nextVersion = Number(policy.policy_version ?? 0) + 1;
+        const { error: policyError } = await supabase.from('quota_policies').update({
+          home_ssid: ssid,
+          target_bssid: bssid,
+          policy_version: Math.max(1, nextVersion),
+          policy_updated_at: new Date().toISOString(),
+        }).eq('device_key', String(policy.device_key)).eq('household_id', householdId);
+        if (policyError) throw policyError;
+      }));
+      if (session?.user.id) await loadData(session.user.id);
+      showToast('تم تحديث الشبكة', 'تم إرسال التغيير إلى الأجهزة المرتبطة بها', 'success');
+      return true;
+    } catch (error) {
+      showToast('تعذر تحديث الشبكة', describeSupabaseError(error, 'تحقق من الصلاحيات والبيانات'), 'danger');
+      return false;
+    }
+  };
+
+  const deleteMonitoredNetwork = async (networkId: string) => {
+    if (!householdId) return false;
+    try {
+      const { data: policies, error: policiesError } = await supabase.from('quota_policies')
+        .select('device_key,policy_version').eq('household_id', householdId).eq('target_network_id', networkId);
+      if (policiesError) throw policiesError;
+      await Promise.all((policies ?? []).map(async (policy) => {
+        const { error: policyError } = await supabase.from('quota_policies').update({
+          target_network_id: null,
+          home_ssid: '',
+          target_bssid: '',
+          policy_version: Math.max(1, Number(policy.policy_version ?? 0) + 1),
+          policy_updated_at: new Date().toISOString(),
+        }).eq('device_key', String(policy.device_key)).eq('household_id', householdId);
+        if (policyError) throw policyError;
+      }));
+      const { error } = await supabase.from('monitored_networks').delete().eq('id', networkId).eq('household_id', householdId);
+      if (error) throw error;
+      if (session?.user.id) await loadData(session.user.id);
+      showToast('تم حذف الشبكة', 'الأجهزة المرتبطة بها أصبحت بلا شبكة مستهدفة حتى تعيين شبكة جديدة', 'success');
+      return true;
+    } catch (error) {
+      showToast('تعذر حذف الشبكة', describeSupabaseError(error, 'قد تكون الشبكة مستخدمة أو غير متاحة'), 'danger');
+      return false;
+    }
+  };
+
+  const assignDeviceNetwork = async (deviceId: string, networkId: string | null) => {
+    if (!householdId) return false;
+    try {
+      const network = networkId ? monitoredNetworks.find((item) => item.id === networkId) : null;
+      if (networkId && !network) throw new Error('الشبكة المحددة غير موجودة');
+      const { data: currentPolicy, error: currentError } = await supabase.from('quota_policies')
+        .select('policy_version,monthly_limit_gb,enforce_vpn_block,is_blocked').eq('device_key', deviceId).eq('household_id', householdId).maybeSingle();
+      if (currentError) throw currentError;
+      const nextVersion = Math.max(1, Number(currentPolicy?.policy_version ?? 0) + 1);
+      const policyPatch = {
+        device_key: deviceId,
+        household_id: householdId,
+        user_id: null,
+        monthly_limit_gb: Number(currentPolicy?.monthly_limit_gb ?? devices.find((item) => item.id === deviceId)?.allowedQuotaGB ?? 0),
+        warning_threshold_percent: 85,
+        enforce_vpn_block: Boolean(currentPolicy?.enforce_vpn_block ?? true),
+        is_blocked: Boolean(currentPolicy?.is_blocked ?? false),
+        target_network_id: network?.id ?? null,
+        home_ssid: network?.ssid ?? '',
+        target_bssid: network?.bssid ?? '',
+        blocked_scope: 'TARGET_WIFI_ONLY',
+        policy_version: nextVersion,
+        policy_updated_at: new Date().toISOString(),
+        reason: null,
+        reset_day_of_month: 1,
+      };
+      const policyQuery = currentPolicy
+        ? supabase.from('quota_policies').update(policyPatch).eq('device_key', deviceId).eq('household_id', householdId)
+        : supabase.from('quota_policies').insert(policyPatch);
+      const { error: policyError } = await policyQuery;
+      if (policyError) throw policyError;
+      const { error: deviceError } = await supabase.from('devices').update({ target_network_id: network?.id ?? null })
+        .eq('device_key', deviceId).eq('household_id', householdId);
+      if (deviceError) throw deviceError;
+      if (session?.user.id) await loadData(session.user.id);
+      showToast('تم توجيه الجهاز', network ? `سيعمل على ${network.networkName}` : 'تم إلغاء الشبكة المستهدفة لهذا الجهاز', 'success');
+      return true;
+    } catch (error) {
+      showToast('تعذر توجيه الجهاز', describeSupabaseError(error, 'تحقق من الشبكة والصلاحيات'), 'danger');
+      return false;
+    }
+  };
+
   const writeDevicePolicy = async (device: Device, blocked: boolean, quotaGb = device.allowedQuotaGB) => {
     if (!householdId) return;
     const { data: currentPolicy, error: currentPolicyError } = await supabase
@@ -445,14 +623,16 @@ export function MizanProvider({ children }: { children: ReactNode }) {
       .maybeSingle();
     if (currentPolicyError) throw currentPolicyError;
     const nextPolicyVersion = Number(currentPolicy?.policy_version ?? device.policyVersion ?? 0) + 1;
+    const assignedNetwork = device.targetNetworkId ? monitoredNetworks.find((network) => network.id === device.targetNetworkId) : undefined;
     const payload = {
       device_key: device.id,
       household_id: householdId,
       user_id: null,
       monthly_limit_gb: quotaGb,
       warning_threshold_percent: 85,
-      home_ssid: gatewaySettings?.targetSsid ?? device.wifiSSID,
-      target_bssid: gatewaySettings?.targetBssid ?? device.wifiBssid ?? '',
+      target_network_id: assignedNetwork?.id ?? null,
+      home_ssid: assignedNetwork?.ssid ?? '',
+      target_bssid: assignedNetwork?.bssid ?? '',
       enforce_vpn_block: gatewaySettings?.autoCutoff ?? true,
       is_blocked: blocked,
       blocked_scope: 'TARGET_WIFI_ONLY',
@@ -533,9 +713,10 @@ export function MizanProvider({ children }: { children: ReactNode }) {
   return (
     <MizanContext.Provider value={{
       currentScreen, setCurrentScreen, navigateToDevice, selectedDeviceId, selectedDevice, setSelectedDeviceId,
-      isLoggedIn, login, logout, adminName, adminEmail, householdId, householdName, devices, householdQuota,
+      isLoggedIn, login, logout, adminName, adminEmail, householdId, householdName, devices, monitoredNetworks, householdQuota,
       notifications, unreadNotificationsCount, gatewaySettings, activeInvite, createHousehold, createInvite,
-      saveGatewaySettings, toggleDevicePause, unblockDevice, blockDevice, removeDevice, updateQuota,
+      saveGatewaySettings, createMonitoredNetwork, updateMonitoredNetwork, deleteMonitoredNetwork, assignDeviceNetwork,
+      toggleDevicePause, unblockDevice, blockDevice, removeDevice, updateQuota,
       markNotificationAsRead, markAllNotificationsAsRead, clearNotifications, refreshData, editQuotaModalOpen,
       editQuotaTarget, openEditQuotaModal, closeEditQuotaModal, simulatedState, setSimulatedState,
       resetSimulatedState, globalSearch, setGlobalSearch, toasts, showToast, removeToast,

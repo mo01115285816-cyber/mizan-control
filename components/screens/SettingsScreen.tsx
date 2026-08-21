@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Settings, Wifi, ShieldCheck, User, Save, RotateCcw, Copy, Link2, Home, Plus, HelpCircle, Pencil, CheckCircle2, X } from 'lucide-react';
+import { Settings, Wifi, ShieldCheck, User, Save, RotateCcw, Copy, Link2, Home, Plus, HelpCircle, Pencil, CheckCircle2, X, Trash2 } from 'lucide-react';
 import { useMizan } from '@/context/MizanContext';
 
 const inputClass = 'w-full bg-[#F6F7F2] border border-[#E3E5DC] focus:border-[#151515] rounded-2xl px-4 py-3 text-sm font-bold text-[#151515] outline-none transition-all';
@@ -14,10 +14,14 @@ export default function SettingsScreen() {
     householdName,
     gatewaySettings,
     devices,
+    monitoredNetworks,
     activeInvite,
     createHousehold,
     createInvite,
     saveGatewaySettings,
+    createMonitoredNetwork,
+    updateMonitoredNetwork,
+    deleteMonitoredNetwork,
     refreshData,
   } = useMizan();
 
@@ -35,6 +39,10 @@ export default function SettingsScreen() {
   const [inviteName, setInviteName] = useState('');
   const [inviteMaxUses, setInviteMaxUses] = useState('5');
   const [isSaving, setIsSaving] = useState(false);
+  const [networkName, setNetworkName] = useState('');
+  const [networkSsid, setNetworkSsid] = useState('');
+  const [networkBssid, setNetworkBssid] = useState('');
+  const [editingNetworkId, setEditingNetworkId] = useState<string | null>(null);
   const observedDevice = [...devices]
     .sort((a, b) => new Date(b.networkUpdatedAt || b.lastUpdatedDetail || 0).getTime() - new Date(a.networkUpdatedAt || a.lastUpdatedDetail || 0).getTime())
     .find((device) => Boolean(device.networkUpdatedAt) || Boolean(device.gatewayIp?.trim()) || Boolean(device.wifiBand?.trim()) || Boolean(device.wifiSSID?.trim() && !device.wifiSSID.includes('غير متاح')));
@@ -78,6 +86,28 @@ export default function SettingsScreen() {
     setIsSaving(false);
   };
 
+  const handleSaveMonitoredNetwork = async () => {
+    const input = { networkName, ssid: networkSsid, bssid: networkBssid };
+    const saved = editingNetworkId
+      ? await updateMonitoredNetwork(editingNetworkId, input)
+      : Boolean(await createMonitoredNetwork(input));
+    if (saved) {
+      setNetworkName('');
+      setNetworkSsid('');
+      setNetworkBssid('');
+      setEditingNetworkId(null);
+    }
+  };
+
+  const beginEditMonitoredNetwork = (networkId: string) => {
+    const network = monitoredNetworks.find((item) => item.id === networkId);
+    if (!network) return;
+    setEditingNetworkId(network.id);
+    setNetworkName(network.networkName);
+    setNetworkSsid(network.ssid);
+    setNetworkBssid(network.bssid);
+  };
+
   const handleCreateHousehold = async (event: React.FormEvent) => {
     event.preventDefault();
     const quota = Number(houseQuota);
@@ -115,6 +145,19 @@ export default function SettingsScreen() {
           <div className="flex items-center justify-between gap-3 pb-3 border-b border-[#E3E5DC]"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-[14px] bg-[#E7F5C8] flex items-center justify-center"><Wifi className="w-5 h-5" /></div><div><h2 className="text-base font-bold">إعدادات الشبكة المستهدفة</h2><p className="text-xs text-[#777A72]">الحصة والحظر يعملان فقط عند تطابق الشبكة المعتمدة.</p></div></div><button type="button" onClick={() => setShowNetworkGuide((value) => !value)} className="w-9 h-9 rounded-full bg-[#F6F7F2] border border-[#E3E5DC] flex items-center justify-center" title="كيف أحصل على بيانات الشبكة؟"><HelpCircle className="w-5 h-5" /></button></div>
           {showNetworkGuide && <div className="p-4 rounded-2xl bg-[#FFF8E8] border border-[#F0D58A] text-xs leading-6 text-[#5F512F]"><strong className="block mb-1">كيف تضبطها بدقة؟</strong><span>افتح تطبيق Mizan على الهاتف وهو متصل بشبكة المنزل، فعّل أذونات Wi‑Fi والموقع وشغّل خدمة الموقع العامة. انتظر وصول آخر Telemetry، ثم اضغط «استخدام القراءة المرصودة كاملة». سيحفظ النظام اسم الشبكة وBSSID والبوابة معًا، ولن يعتمد أي اسم أو تشفير من عنده.</span></div>}
           {hasConfiguredTarget && !isEditingNetwork ? <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 rounded-2xl bg-[#E7F5C8] border border-[#C8F24A]"><div className="flex items-start gap-3"><CheckCircle2 className="w-5 h-5 mt-0.5 text-[#5D7D1A]" /><div><span className="text-xs text-[#5D7D1A] block">الشبكة المعتمدة للحصة والحظر</span><strong className="text-base block mt-1">{gatewaySettings?.targetSsid}</strong><span className="text-[11px] text-[#5D7D1A] block mt-1">BSSID: {gatewaySettings?.targetBssid || 'غير محفوظ — المطابقة بالـ SSID فقط'}</span><span className="text-[11px] text-[#777A72] block mt-1">Gateway: {gatewaySettings?.gatewayIp || 'غير متاح'} • النطاق: {gatewaySettings?.wifiBand || 'غير متاح'}</span></div></div><button type="button" onClick={() => setIsEditingNetwork(true)} className="px-4 py-2 rounded-full bg-[#151515] text-[#FFFDF8] text-xs font-bold flex items-center gap-2"><Pencil className="w-3.5 h-3.5" /> تعديل</button></div> : <div className="space-y-4"><div className="flex items-center justify-between gap-3"><span className="text-xs font-bold">تأكيد شبكة المنزل</span>{hasConfiguredTarget && <button type="button" onClick={() => setIsEditingNetwork(false)} className="text-xs font-bold text-[#777A72] flex items-center gap-1"><X className="w-3.5 h-3.5" /> إلغاء</button>}</div><label className="block space-y-2"><span className="text-xs font-bold">اسم شبكة المنزل (Target SSID)</span><input value={targetSsid} onChange={(e) => setTargetSsid(e.target.value)} className={inputClass} placeholder={observedSsid || 'سيظهر هنا SSID الحقيقي من الهاتف'} /></label><label className="block space-y-2"><span className="text-xs font-bold">معرّف الراوتر (BSSID)</span><input value={targetBssid} onChange={(e) => setTargetBssid(e.target.value)} className={`${inputClass} dir-ltr`} placeholder={observedBssid || 'مثال: AA:BB:CC:DD:EE:FF'} /></label><div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-4 rounded-2xl bg-[#F6F7F2] border border-[#E3E5DC]"><div className="flex-1"><span className="text-xs text-[#777A72] block">آخر قراءة حقيقية من الهاتف</span><strong className="text-sm block">{observedSsid || 'لم تصل قراءة Wi‑Fi حقيقية بعد'}</strong><span className="text-[11px] text-[#777A72] block mt-1">BSSID: {observedBssid || 'غير متاح'}{observedDevice?.networkUpdatedAt ? ` • ${new Date(observedDevice.networkUpdatedAt).toLocaleString('ar-EG')}` : ''}</span></div><button type="button" disabled={!observedSsid} onClick={() => { setTargetSsid(observedSsid); setTargetBssid(observedBssid); }} className="px-4 py-2 rounded-full bg-[#151515] text-[#FFFDF8] text-xs font-bold disabled:opacity-40">استخدام القراءة المرصودة كاملة</button></div><div className="grid grid-cols-1 sm:grid-cols-3 gap-3"><label className="space-y-2"><span className="text-xs font-bold">Gateway المرصود</span><input readOnly value={observedGatewayIp} className={`${inputClass} opacity-70`} placeholder="لم يصل بعد" /></label><label className="space-y-2"><span className="text-xs font-bold">النطاق المرصود</span><input readOnly value={observedWifiBand} className={`${inputClass} opacity-70`} placeholder="لم يصل بعد" /></label><label className="space-y-2"><span className="text-xs font-bold">التشفير المرصود</span><input readOnly value={observedSecurityType} className={`${inputClass} opacity-70`} placeholder="غير متاح من Android" /></label></div><p className="text-[11px] text-[#777A72]">لن يتم اعتماد الشبكة قبل الضغط على حفظ الإعدادات. إذا كان BSSID متاحًا فسيكون هو المعرّف الأقوى، وإلا سيستخدم التطبيق SSID فقط دون اختراع بيانات.</p></div>}
+        </section>
+
+        <section className="bg-[#FFFDF8] border border-[#E3E5DC] rounded-[28px] p-5 sm:p-7 space-y-4">
+          <div className="flex items-center justify-between gap-3 pb-3 border-b border-[#E3E5DC]"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-[14px] bg-[#E7F5C8] flex items-center justify-center"><Wifi className="w-5 h-5" /></div><div><h2 className="text-base font-bold">شبكات العائلة المراقبة</h2><p className="text-xs text-[#777A72]">أضف كل راوتر حقيقي، ثم وجّه كل جهاز إلى شبكته من صفحة تفاصيل الجهاز.</p></div></div><span className="text-xs font-bold text-[#777A72]">{monitoredNetworks.length} شبكة</span></div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <input value={networkName} onChange={(e) => setNetworkName(e.target.value)} className={inputClass} placeholder="اسم إداري: شبكة خالتي" />
+            <input value={networkSsid} onChange={(e) => setNetworkSsid(e.target.value)} className={inputClass} placeholder="SSID الحقيقي" />
+            <input value={networkBssid} onChange={(e) => setNetworkBssid(e.target.value)} className={`${inputClass} dir-ltr`} placeholder="BSSID اختياري" />
+            <button type="button" onClick={() => void handleSaveMonitoredNetwork()} className="px-4 py-3 rounded-2xl bg-[#151515] text-[#FFFDF8] text-xs font-bold flex items-center justify-center gap-2"><Plus className="w-4 h-4" />{editingNetworkId ? 'حفظ تعديل الشبكة' : 'إضافة شبكة'}</button>
+          </div>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 rounded-2xl bg-[#F6F7F2] border border-[#E3E5DC]"><div><span className="text-xs text-[#777A72] block">يمكن استخدام آخر قراءة حقيقية من الهاتف</span><strong className="text-sm">{observedSsid || 'لم تصل قراءة Wi‑Fi حقيقية بعد'}</strong><span className="text-[11px] text-[#777A72] block mt-1">BSSID: {observedBssid || 'غير متاح'}</span></div><button type="button" disabled={!observedSsid} onClick={() => { setNetworkSsid(observedSsid); setNetworkBssid(observedBssid); if (!networkName) setNetworkName(observedSsid); }} className="px-4 py-2 rounded-full bg-[#151515] text-[#FFFDF8] text-xs font-bold disabled:opacity-40">استخدام القراءة المرصودة</button></div>
+          {monitoredNetworks.length > 0 && <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">{monitoredNetworks.map((network) => <div key={network.id} className="p-4 rounded-2xl bg-[#E7F5C8] border border-[#C8F24A] flex items-start justify-between gap-3"><div className="min-w-0"><strong className="block text-sm">{network.networkName}</strong><span className="block text-xs mt-1 break-all">SSID: {network.ssid}</span><span className="block text-[11px] text-[#5D7D1A] mt-1 break-all">BSSID: {network.bssid || 'غير محفوظ — سيستخدم SSID'}</span><span className="block text-[11px] text-[#777A72] mt-2">الأجهزة المعيّنة تظهر في صفحة تفاصيل كل جهاز.</span></div><div className="flex items-center gap-1 shrink-0"><button type="button" onClick={() => beginEditMonitoredNetwork(network.id)} className="p-2 rounded-full bg-[#FFFDF8]" title="تعديل"><Pencil className="w-4 h-4" /></button><button type="button" onClick={() => void deleteMonitoredNetwork(network.id)} className="p-2 rounded-full bg-[#FFFDF8] text-red-600" title="حذف"><Trash2 className="w-4 h-4" /></button></div></div>)}</div>}
+          {editingNetworkId && <button type="button" onClick={() => { setEditingNetworkId(null); setNetworkName(''); setNetworkSsid(''); setNetworkBssid(''); }} className="text-xs font-bold text-[#777A72] flex items-center gap-1"><X className="w-3.5 h-3.5" /> إلغاء تعديل الشبكة</button>}
         </section>
 
         <section className="bg-[#FFFDF8] border border-[#E3E5DC] rounded-[28px] p-5 sm:p-7 space-y-4">
