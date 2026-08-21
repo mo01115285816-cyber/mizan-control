@@ -233,8 +233,17 @@ export function MizanProvider({ children }: { children: ReactNode }) {
         supabase.from('usage_snapshots').select('*').order('timestamp', { ascending: false }).limit(1000),
         supabase.from('app_usage_records').select('*').eq('user_id', userId).order('recorded_date', { ascending: false }).limit(1000),
       ]);
-      const firstError = [deviceResult.error, policyResult.error, networkResult.error, settingsResult.error, snapshotResult.error, appResult.error].find(Boolean);
+      const firstError = [deviceResult.error, policyResult.error, settingsResult.error].find(Boolean);
       if (firstError) throw firstError;
+      if (networkResult.error) {
+        console.warn('تعذر تحميل monitored_networks، ستظهر البيانات الأساسية فقط', networkResult.error);
+      }
+      if (snapshotResult.error) {
+        console.warn('تعذر تحميل usage_snapshots، ستستمر لوحة التحكم دون المخطط', snapshotResult.error);
+      }
+      if (appResult.error) {
+        console.warn('تعذر تحميل app_usage_records، ستستمر لوحة التحكم دون قائمة التطبيقات', appResult.error);
+      }
 
       const policyByDevice = new Map((policyResult.data ?? []).map((row) => [String(row.device_key), row as Record<string, unknown>]));
       const networkById = new Map((networkResult.data ?? []).map((row) => [String(row.id), row as Record<string, unknown>]));
